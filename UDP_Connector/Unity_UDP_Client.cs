@@ -9,6 +9,7 @@ using Newtonsoft.Json.Linq;
 using System.Text;
 using System;
 using System.Data;
+using System.Security.Cryptography;
 
 public class UDP_Connector : MonoBehaviour {
     UdpClient _conn = new UdpClient();
@@ -16,19 +17,29 @@ public class UDP_Connector : MonoBehaviour {
     double await_delay_time = 0.5;
 
     bool isRunning = false;
-    public string auth_key = "ajdskfljaslfkjasdkldf";
+    public string auth_key = string.Empty;
     bool quit_signal = false;
+
+    Func<string> _rand_string = () =>{                                                                  // making random string
+        var chara = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        var chararr = new char[16];
+        for (int i = 0 ; i < chararr.Length ; i++ ){
+            chararr[i] = chara[(int)(UnityEngine.Random.Range(0, chara.Length))];
+        }
+        return chararr.ToString();
+    };
 
     Thread recv_th;
     void Start ( ) {
         isRunning = true;
+        this.auth_key = _rand_string();
         // send init
         Dictionary<string, string> _data = new Dictionary<string, string>();
         _data.Add( "TYPE", "AUTH" );
         _data.Add( "VALUE", auth_key );
         _data.Add( "AUTH", auth_key );
-        send_message( JsonConvert.SerializeObject( _data ) );
-
+        send_message( JsonConvert.SerializeObject( _data ) );                                           //ë³„ ì˜ë¯¸ì—†ëŠ” í–‰ìœ„ê¸´ í•œë° í•„ìš”ëŠ” í• ë“¯?
+        
 
         Thread t = new Thread(new ThreadStart(delegate(){
             while(isRunning){
@@ -40,8 +51,8 @@ public class UDP_Connector : MonoBehaviour {
                 var recv_jobject = string_to_jobject(recv_string);
 
                 Debug.Log(recv_string);
-                if (recv_jobject.Value<string>("TYPE") == "EOF"){quit_signal = true; return; }          // WF Á¾·á
-                if (recv_jobject.Value<string>("TYPE") == "AUTH_DENY"){quit_signal = true; return; }    // Å° ¾È¸ÂÀ½
+                if (recv_jobject.Value<string>("TYPE") == "EOF"){ quit_signal = true; return; }          // WF ì¢…ë£Œ
+                if (recv_jobject.Value<string>("TYPE") == "AUTH_DENY"){ quit_signal = true; return; }    // í‚¤ ì•ˆë§ìŒ
             }
         } ));
 
@@ -51,14 +62,19 @@ public class UDP_Connector : MonoBehaviour {
 
     private void Update ( ) {
         if ( quit_signal ) {
-            Debug.Log( quit_signal.ToString() );
-            UnityEditor.EditorApplication.isPlaying = false;
-            Application.Quit(); 
+            quit_seq();
         }
     }
 
-    private void OnDestroy ( ) {
+    private void quit_seq ( ) {
         recv_th.Abort();
+        Debug.Log( quit_signal.ToString() );
+        UnityEditor.EditorApplication.isPlaying = false;
+        Application.Quit();
+    }
+
+    private void OnDestroy ( ) {
+        quit_seq();
     }
 
     /// <summary> Running RECV function </summary>
@@ -79,7 +95,7 @@ public class UDP_Connector : MonoBehaviour {
 
 
     /// <summary>
-    /// ¸Ş½ÃÁö Àü´ŞÀ» À§ÇÑ ÄÚµå
+    /// ë©”ì‹œì§€ ì „ë‹¬ì„ ìœ„í•œ ì½”ë“œ
     /// </summary>
     /// <param name="message"></param>
     /// <param name="port"></param>
